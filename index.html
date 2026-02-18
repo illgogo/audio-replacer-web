@@ -2,17 +2,21 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Audio Replacer Netlify</title>
+  <title>Audio Replacer Legacy</title>
+
   <style>
     body { font-family: Arial; padding: 30px; max-width: 600px; }
     button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
     input { margin-bottom: 10px; }
     #status { margin-top: 15px; font-weight: bold; }
   </style>
+
+  <!-- Підключаємо стару версію ffmpeg.wasm глобально -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 </head>
 <body>
 
-<h2>Audio Replacer (Browser)</h2>
+<h2>Audio Replacer (Legacy WASM)</h2>
 
 <label>Choose MP4 video:</label><br>
 <input type="file" id="videoInput" accept="video/mp4"><br>
@@ -23,67 +27,64 @@
 <label>Output suffix:</label><br>
 <input type="text" id="suffix" value="_new"><br>
 
-<button id="processBtn">Replace Audio</button>
+<button onclick="process()">Replace Audio</button>
 
 <p id="status"></p>
 
-<!-- сучасна версія ffmpeg.wasm -->
-<script type="module">
-import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+<script>
+  // Використовуємо глобальний FFmpeg
+  const { createFFmpeg, fetchFile } = FFmpeg;
 
-const status = document.getElementById("status");
+  const ffmpeg = createFFmpeg({
+    log: true,
+    corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"
+  });
 
-const ffmpeg = createFFmpeg({
-  log: true,
-  corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-});
+  async function process() {
+    const status = document.getElementById("status");
+    const videoFile = document.getElementById("videoInput").files[0];
+    const audioFile = document.getElementById("audioInput").files[0];
+    const suffix = document.getElementById("suffix").value;
 
-document.getElementById("processBtn").addEventListener("click", async () => {
+    if (!videoFile || !audioFile) {
+      alert("Choose both files!");
+      return;
+    }
 
-  const videoFile = document.getElementById("videoInput").files[0];
-  const audioFile = document.getElementById("audioInput").files[0];
-  const suffix = document.getElementById("suffix").value;
+    try {
+      status.innerText = "Loading FFmpeg (first run 20–30 sec)...";
+      if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-  if (!videoFile || !audioFile) {
-    alert("Choose both files!");
-    return;
+      status.innerText = "Writing files...";
+      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+      ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
+
+      status.innerText = "Processing...";
+      await ffmpeg.run(
+        '-i', 'input.mp4',
+        '-i', 'audio.wav',
+        '-map', '0:v',
+        '-map', '1:a',
+        '-c:v', 'copy',
+        'output.mp4'
+      );
+
+      status.innerText = "Preparing download...";
+      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const blob = new Blob([data.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
+      a.click();
+
+      status.innerText = "Done!";
+    } catch (err) {
+      console.error(err);
+      status.innerText = "Error: " + err.message;
+    }
   }
-
-  try {
-    status.innerText = "Loading FFmpeg (first run ~15-20 sec)...";
-    if (!ffmpeg.isLoaded()) await ffmpeg.load();
-
-    status.innerText = "Writing files...";
-    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-    ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
-
-    status.innerText = "Processing...";
-    await ffmpeg.run(
-      '-i', 'input.mp4',
-      '-i', 'audio.wav',
-      '-map', '0:v',
-      '-map', '1:a',
-      '-c:v', 'copy',
-      'output.mp4'
-    );
-
-    status.innerText = "Preparing download...";
-    const data = ffmpeg.FS('readFile', 'output.mp4');
-    const blob = new Blob([data.buffer], { type: 'video/mp4' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
-    a.click();
-
-    status.innerText = "Done!";
-  } catch (err) {
-    console.error(err);
-    status.innerText = "Error: " + err.message;
-  }
-
-});
 </script>
 
 </body>
