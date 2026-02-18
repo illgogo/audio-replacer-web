@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Audio Replacer (Browser Version)</title>
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 30px; }
+    button { padding: 10px 20px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Audio Replacer (Browser)</h2>
+
+<input type="file" id="videoInput" accept="video/mp4"><br><br>
+<input type="file" id="audioInput" accept="audio/wav"><br><br>
+<input type="text" id="suffix" value="_new"><br><br>
+
+<button onclick="process()">Replace Audio</button>
+
+<p id="status"></p>
+
+<script>
+  const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
+
+  async function process() {
+    const videoFile = document.getElementById('videoInput').files[0];
+    const audioFile = document.getElementById('audioInput').files[0];
+    const suffix = document.getElementById('suffix').value;
+    const status = document.getElementById('status');
+
+    if (!videoFile || !audioFile) {
+      alert("Choose both files!");
+      return;
+    }
+
+    status.innerText = "Loading FFmpeg...";
+    await ffmpeg.load();
+
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+    ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
+
+    status.innerText = "Processing...";
+
+    await ffmpeg.run(
+      '-i', 'input.mp4',
+      '-i', 'audio.wav',
+      '-map', '0:v',
+      '-map', '1:a',
+      '-c:v', 'copy',
+      'output.mp4'
+    );
+
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+
+    const blob = new Blob([data.buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
+    a.click();
+
+    status.innerText = "Done!";
+  }
+</script>
+
+</body>
+</html>
