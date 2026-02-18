@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Audio Replacer</title>
+  <title>Audio Replacer (Legacy WASM)</title>
 
   <style>
     body { font-family: Arial; padding: 30px; max-width: 600px; }
@@ -10,84 +10,79 @@
     input { margin-bottom: 10px; }
     #status { margin-top: 15px; font-weight: bold; }
   </style>
+
+  <!-- СТАРА стабільна версія -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.8.5/dist/ffmpeg.min.js"></script>
 </head>
 <body>
 
-<h2>Audio Replacer (Browser)</h2>
+<h2>Audio Replacer (Browser Legacy)</h2>
 
+<label>Choose MP4:</label><br>
 <input type="file" id="videoInput" accept="video/mp4"><br>
+
+<label>Choose WAV:</label><br>
 <input type="file" id="audioInput" accept="audio/wav"><br>
+
+<label>Suffix:</label><br>
 <input type="text" id="suffix" value="_new"><br>
 
-<button id="processBtn">Replace Audio</button>
+<button onclick="process()">Replace Audio</button>
 
 <p id="status"></p>
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
-
 <script>
-const status = document.getElementById("status");
-
-document.getElementById("processBtn").addEventListener("click", async () => {
-
-  const videoFile = document.getElementById("videoInput").files[0];
-  const audioFile = document.getElementById("audioInput").files[0];
-  const suffix = document.getElementById("suffix").value;
-
-  if (!videoFile || !audioFile) {
-    alert("Choose both files!");
-    return;
-  }
-
-  status.innerText = "Initializing...";
-
   const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
 
-  const ffmpeg = createFFmpeg({
-    log: true,
-    corePath: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js"
-  });
+  async function process() {
 
-  try {
+    const status = document.getElementById("status");
+    const videoFile = document.getElementById("videoInput").files[0];
+    const audioFile = document.getElementById("audioInput").files[0];
+    const suffix = document.getElementById("suffix").value;
 
-    status.innerText = "Loading FFmpeg (first run 10-20 sec)...";
-    await ffmpeg.load();
+    if (!videoFile || !audioFile) {
+      alert("Choose both files!");
+      return;
+    }
 
-    status.innerText = "Writing files...";
-    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-    ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
+    try {
+      status.innerText = "Loading FFmpeg (first run may take 20-30 sec)...";
+      await ffmpeg.load();
 
-    status.innerText = "Processing...";
-    await ffmpeg.run(
-      '-i', 'input.mp4',
-      '-i', 'audio.wav',
-      '-map', '0:v',
-      '-map', '1:a',
-      '-c:v', 'copy',
-      'output.mp4'
-    );
+      status.innerText = "Writing files...";
+      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+      ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
 
-    status.innerText = "Preparing download...";
+      status.innerText = "Processing...";
+      await ffmpeg.run(
+        '-i', 'input.mp4',
+        '-i', 'audio.wav',
+        '-map', '0:v',
+        '-map', '1:a',
+        '-c:v', 'copy',
+        'output.mp4'
+      );
 
-    const data = ffmpeg.FS('readFile', 'output.mp4');
-    const blob = new Blob([data.buffer], { type: 'video/mp4' });
-    const url = URL.createObjectURL(blob);
+      status.innerText = "Preparing download...";
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const blob = new Blob([data.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
 
-    status.innerText = "Done!";
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
+      a.click();
 
-  } catch (err) {
-    console.error(err);
-    status.innerText = "Error: " + err.message;
+      status.innerText = "Done!";
+
+    } catch (err) {
+      console.error(err);
+      status.innerText = "Error: " + err.message;
+    }
   }
-
-});
 </script>
 
 </body>
