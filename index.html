@@ -29,15 +29,14 @@
 <p id="status"></p>
 
 <script type="module">
-  import { createFFmpeg, fetchFile } from
-    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js';
+  import { createFFmpeg, fetchFile } from 
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
 
   const status = document.getElementById("status");
 
   const ffmpeg = createFFmpeg({
     log: true,
-    corePath:
-      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js"
+    corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"
   });
 
   document.getElementById("processBtn").addEventListener("click", async () => {
@@ -52,7 +51,6 @@
     }
 
     try {
-
       status.innerText = "Loading FFmpeg (first run ~15 sec)...";
       if (!ffmpeg.isLoaded()) {
         await ffmpeg.load();
