@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Audio Replacer (Browser Version)</title>
+  <title>Audio Replacer</title>
 
   <style>
     body { font-family: Arial; padding: 30px; max-width: 600px; }
@@ -15,26 +15,21 @@
 
 <h2>Audio Replacer (Browser)</h2>
 
-<label>Choose MP4 video:</label><br>
 <input type="file" id="videoInput" accept="video/mp4"><br>
-
-<label>Choose WAV audio:</label><br>
 <input type="file" id="audioInput" accept="audio/wav"><br>
-
-<label>Output suffix:</label><br>
 <input type="text" id="suffix" value="_new"><br>
 
 <button id="processBtn">Replace Audio</button>
 
 <p id="status"></p>
 
-<!-- Підключення бібліотеки ПІСЛЯ всього HTML -->
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
 
 <script>
+const status = document.getElementById("status");
+
 document.getElementById("processBtn").addEventListener("click", async () => {
 
-  const status = document.getElementById("status");
   const videoFile = document.getElementById("videoInput").files[0];
   const audioFile = document.getElementById("audioInput").files[0];
   const suffix = document.getElementById("suffix").value;
@@ -44,11 +39,56 @@ document.getElementById("processBtn").addEventListener("click", async () => {
     return;
   }
 
-  if (typeof FFmpeg === "undefined") {
-    status.innerText = "FFmpeg library failed to load.";
-    return;
-  }
+  status.innerText = "Initializing...";
 
   const { createFFmpeg, fetchFile } = FFmpeg;
 
-  const ffmpeg = createFFmpeg({ log:
+  const ffmpeg = createFFmpeg({
+    log: true,
+    corePath: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js"
+  });
+
+  try {
+
+    status.innerText = "Loading FFmpeg (first run 10-20 sec)...";
+    await ffmpeg.load();
+
+    status.innerText = "Writing files...";
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+    ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
+
+    status.innerText = "Processing...";
+    await ffmpeg.run(
+      '-i', 'input.mp4',
+      '-i', 'audio.wav',
+      '-map', '0:v',
+      '-map', '1:a',
+      '-c:v', 'copy',
+      'output.mp4'
+    );
+
+    status.innerText = "Preparing download...";
+
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    const blob = new Blob([data.buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    status.innerText = "Done!";
+
+  } catch (err) {
+    console.error(err);
+    status.innerText = "Error: " + err.message;
+  }
+
+});
+</script>
+
+</body>
+</html>
