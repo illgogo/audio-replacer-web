@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Audio Replacer (Legacy WASM)</title>
+  <title>Audio Replacer</title>
 
   <style>
     body { font-family: Arial; padding: 30px; max-width: 600px; }
@@ -10,34 +10,38 @@
     input { margin-bottom: 10px; }
     #status { margin-top: 15px; font-weight: bold; }
   </style>
-
-  <!-- СТАРА стабільна версія -->
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.8.5/dist/ffmpeg.min.js"></script>
 </head>
 <body>
 
-<h2>Audio Replacer (Browser Legacy)</h2>
+<h2>Audio Replacer (Browser)</h2>
 
-<label>Choose MP4:</label><br>
+<label>Choose MP4 video:</label><br>
 <input type="file" id="videoInput" accept="video/mp4"><br>
 
-<label>Choose WAV:</label><br>
+<label>Choose WAV audio:</label><br>
 <input type="file" id="audioInput" accept="audio/wav"><br>
 
-<label>Suffix:</label><br>
+<label>Output suffix:</label><br>
 <input type="text" id="suffix" value="_new"><br>
 
-<button onclick="process()">Replace Audio</button>
+<button id="processBtn">Replace Audio</button>
 
 <p id="status"></p>
 
-<script>
-  const { createFFmpeg, fetchFile } = FFmpeg;
-  const ffmpeg = createFFmpeg({ log: true });
+<script type="module">
+  import { createFFmpeg, fetchFile } from
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js';
 
-  async function process() {
+  const status = document.getElementById("status");
 
-    const status = document.getElementById("status");
+  const ffmpeg = createFFmpeg({
+    log: true,
+    corePath:
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js"
+  });
+
+  document.getElementById("processBtn").addEventListener("click", async () => {
+
     const videoFile = document.getElementById("videoInput").files[0];
     const audioFile = document.getElementById("audioInput").files[0];
     const suffix = document.getElementById("suffix").value;
@@ -48,8 +52,11 @@
     }
 
     try {
-      status.innerText = "Loading FFmpeg (first run may take 20-30 sec)...";
-      await ffmpeg.load();
+
+      status.innerText = "Loading FFmpeg (first run ~15 sec)...";
+      if (!ffmpeg.isLoaded()) {
+        await ffmpeg.load();
+      }
 
       status.innerText = "Writing files...";
       ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
@@ -82,7 +89,8 @@
       console.error(err);
       status.innerText = "Error: " + err.message;
     }
-  }
+
+  });
 </script>
 
 </body>
