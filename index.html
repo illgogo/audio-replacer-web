@@ -11,7 +11,7 @@
     #status { margin-top: 15px; font-weight: bold; }
   </style>
 
-  <!-- Старий FFmpeg глобально -->
+  <!-- Legacy FFmpeg global -->
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 </head>
 <body>
@@ -32,7 +32,7 @@
 <p id="status"></p>
 
 <script>
-  // Глобальний FFmpeg
+  // Global FFmpeg
   const { createFFmpeg, fetchFile } = FFmpeg;
 
   const ffmpeg = createFFmpeg({
@@ -58,7 +58,7 @@
         await ffmpeg.load();
       }
 
-      // Завантажуємо WAV у пам'ять один раз
+      // Load the WAV into memory once
       const audioData = await fetchFile(audioFile);
 
       for (let i = 0; i < videoFiles.length; i++) {
@@ -68,7 +68,7 @@
         status.innerText =
           `Processing ${i + 1} / ${videoFiles.length}: ${videoFile.name}`;
 
-        // Очищаємо попередні файли FFmpeg
+        // Clear previous FFmpeg files
         try {
           ffmpeg.FS('unlink', 'input.mp4');
         } catch (e) {}
@@ -81,21 +81,21 @@
           ffmpeg.FS('unlink', 'output.mp4');
         } catch (e) {}
 
-        // Записуємо поточне відео
+        // Write the current video
         ffmpeg.FS(
           'writeFile',
           'input.mp4',
           await fetchFile(videoFile)
         );
 
-        // Записуємо WAV
+        // Write the WAV
         ffmpeg.FS(
           'writeFile',
           'audio.wav',
           audioData
         );
 
-        // Підміняємо аудіо
+        // Replace the audio
         await ffmpeg.run(
           '-i', 'input.mp4',
           '-i', 'audio.wav',
@@ -105,7 +105,7 @@
           'output.mp4'
         );
 
-        // Отримуємо результат
+        // Get the result
         const data = ffmpeg.FS('readFile', 'output.mp4');
 
         const blob = new Blob(
@@ -115,7 +115,7 @@
 
         const url = URL.createObjectURL(blob);
 
-        // Формуємо назву так само, як у старій версії
+        // Generate the filename the same way as in the old version
         const dotIndex = videoFile.name.lastIndexOf('.');
 
         const outputName =
@@ -123,13 +123,13 @@
           suffix +
           videoFile.name.substring(dotIndex);
 
-        // Запускаємо завантаження
+        // Start the download
         const a = document.createElement('a');
         a.href = url;
         a.download = outputName;
         a.click();
 
-        // Звільняємо URL
+        // Release the URL
         URL.revokeObjectURL(url);
       }
 
