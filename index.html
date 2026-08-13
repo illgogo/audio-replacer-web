@@ -42,44 +42,100 @@
 
   async function process() {
     const status = document.getElementById("status");
-    const videoFile = document.getElementById("videoInput").files[0];
+    const videoFiles = document.getElementById("videoInput").files;
     const audioFile = document.getElementById("audioInput").files[0];
     const suffix = document.getElementById("suffix").value;
 
-    if (!videoFile || !audioFile) {
-      alert("Choose both files!");
+    if (videoFiles.length === 0 || !audioFile) {
+      alert("Choose both video(s) and audio!");
       return;
     }
 
     try {
       status.innerText = "Loading FFmpeg (first run 20–30 sec)...";
-      if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-      status.innerText = "Writing files...";
-      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-      ffmpeg.FS('writeFile', 'audio.wav', await fetchFile(audioFile));
+      if (!ffmpeg.isLoaded()) {
+        await ffmpeg.load();
+      }
 
-      status.innerText = "Processing...";
-      await ffmpeg.run(
-        '-i', 'input.mp4',
-        '-i', 'audio.wav',
-        '-map', '0:v',
-        '-map', '1:a',
-        '-c:v', 'copy',
-        'output.mp4'
-      );
+      // Завантажуємо WAV у пам'ять один раз
+      const audioData = await fetchFile(audioFile);
 
-      status.innerText = "Preparing download...";
-      const data = ffmpeg.FS('readFile', 'output.mp4');
-      const blob = new Blob([data.buffer], { type: 'video/mp4' });
-      const url = URL.createObjectURL(blob);
+      for (let i = 0; i < videoFiles.length; i++) {
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = videoFile.name.replace(".mp4", suffix + ".mp4");
-      a.click();
+        const videoFile = videoFiles[i];
 
-      status.innerText = "Done!";
+        status.innerText =
+          `Processing ${i + 1} / ${videoFiles.length}: ${videoFile.name}`;
+
+        // Очищаємо попередні файли FFmpeg
+        try {
+          ffmpeg.FS('unlink', 'input.mp4');
+        } catch (e) {}
+
+        try {
+          ffmpeg.FS('unlink', 'audio.wav');
+        } catch (e) {}
+
+        try {
+          ffmpeg.FS('unlink', 'output.mp4');
+        } catch (e) {}
+
+        // Записуємо поточне відео
+        ffmpeg.FS(
+          'writeFile',
+          'input.mp4',
+          await fetchFile(videoFile)
+        );
+
+        // Записуємо WAV
+        ffmpeg.FS(
+          'writeFile',
+          'audio.wav',
+          audioData
+        );
+
+        // Підміняємо аудіо
+        await ffmpeg.run(
+          '-i', 'input.mp4',
+          '-i', 'audio.wav',
+          '-map', '0:v',
+          '-map', '1:a',
+          '-c:v', 'copy',
+          'output.mp4'
+        );
+
+        // Отримуємо результат
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+
+        const blob = new Blob(
+          [data.buffer],
+          { type: 'video/mp4' }
+        );
+
+        const url = URL.createObjectURL(blob);
+
+        // Формуємо назву так само, як у старій версії
+        const dotIndex = videoFile.name.lastIndexOf('.');
+
+        const outputName =
+          videoFile.name.substring(0, dotIndex) +
+          suffix +
+          videoFile.name.substring(dotIndex);
+
+        // Запускаємо завантаження
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = outputName;
+        a.click();
+
+        // Звільняємо URL
+        URL.revokeObjectURL(url);
+      }
+
+      status.innerText =
+        `Done! Processed ${videoFiles.length} file(s).`;
+
     } catch (err) {
       console.error(err);
       status.innerText = "Error: " + err.message;
