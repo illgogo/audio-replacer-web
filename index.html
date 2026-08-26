@@ -40,6 +40,65 @@
     corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"
   });
 
+  // Handle files dragged anywhere onto the page
+  document.addEventListener("dragover", function(event) {
+    event.preventDefault();
+  });
+
+  document.addEventListener("drop", function(event) {
+    event.preventDefault();
+
+    const files = Array.from(event.dataTransfer.files);
+
+    const videoFiles = files.filter(file =>
+      file.type === "video/mp4" ||
+      file.name.toLowerCase().endsWith(".mp4")
+    );
+
+    const audioFiles = files.filter(file =>
+      file.type === "audio/wav" ||
+      file.name.toLowerCase().endsWith(".wav")
+    );
+
+    // Add MP4 files to the existing video selection
+    if (videoFiles.length > 0) {
+      const videoInput = document.getElementById("videoInput");
+
+      const dataTransfer = new DataTransfer();
+
+      // Keep already selected videos
+      for (const file of videoInput.files) {
+        dataTransfer.items.add(file);
+      }
+
+      // Add newly dropped videos
+      for (const file of videoFiles) {
+        dataTransfer.items.add(file);
+      }
+
+      videoInput.files = dataTransfer.files;
+    }
+
+    // Add WAV file to the audio input
+    if (audioFiles.length > 0) {
+      const audioInput = document.getElementById("audioInput");
+
+      const dataTransfer = new DataTransfer();
+
+      // Use the first WAV if several were dropped
+      dataTransfer.items.add(audioFiles[0]);
+
+      audioInput.files = dataTransfer.files;
+    }
+
+    // Update status
+    if (videoFiles.length > 0 || audioFiles.length > 0) {
+      document.getElementById("status").innerText =
+        `Added ${videoFiles.length} video(s)` +
+        (audioFiles.length > 0 ? ` and ${audioFiles.length} audio file(s).` : ".");
+    }
+  });
+
   async function process() {
     const status = document.getElementById("status");
     const videoFiles = document.getElementById("videoInput").files;
